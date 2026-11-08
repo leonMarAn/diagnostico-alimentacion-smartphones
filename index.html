@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ruta de diagnóstico · Fallas de alimentación en smartphones</title>
+  <style>
+    :root {
+      --ink: #1b2430;
+      --muted: #5d6976;
+      --navy: #10283d;
+      --navy-2: #1b4464;
+      --copper: #c4622d;
+      --copper-dark: #8d3f16;
+      --sand: #f3efe6;
+      --paper: #fffdf9;
+      --line: #e2d9cc;
+      --ok: #1d6b45;
+      --ok-bg: #e7f4ec;
+      --stop: #8d2b2b;
+      --stop-bg: #fdecec;
+      --warn: #8a5a10;
+      --warn-bg: #fff4df;
+      --shadow: 0 10px 30px rgba(16, 40, 61, .08);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", Calibri, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 400px at 10% -10%, rgba(196, 98, 45, .14), transparent 50%),
+        linear-gradient(180deg, #efe8dc 0%, var(--sand) 220px);
+      min-height: 100vh;
+    }
+    header {
+      background: var(--navy);
+      color: #f7f1e8;
+      padding: 28px 7vw 22px;
+      border-bottom: 4px solid var(--copper);
+    }
+    .eyebrow {
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      font-size: 12px;
+      color: #e7b899;
+      margin: 0 0 8px;
+    }
+    header h1 { margin: 0; font-weight: 650; font-size: clamp(26px, 3vw, 40px); letter-spacing: -.02em; }
+    header p { margin: 8px 0 0; max-width: 760px; color: #d7e2ec; line-height: 1.45; }
+    .wrap { width: min(1120px, 92vw); margin: 22px auto 48px; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .tabs button, .choice, .ghost, .primary {
+      font: inherit;
+      cursor: pointer;
+      border-radius: 999px;
+      border: 1px solid transparent;
+    }
+    .tabs button {
+      background: transparent;
+      color: var(--navy);
+      border-color: #c9bfb2;
+      padding: 8px 14px;
+    }
+    .tabs button[aria-selected="true"] {
+      background: var(--navy);
+      color: white;
+      border-color: var(--navy);
+    }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .layout { display: grid; grid-template-columns: 1.4fr .8fr; gap: 16px; }
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 18px 18px 16px;
+    }
+    .card h2 { margin: 0 0 8px; font-size: 20px; }
+    .card h3 { margin: 0 0 6px; font-size: 16px; }
+    .muted { color: var(--muted); line-height: 1.45; }
+    .node-kicker { color: var(--copper-dark); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 6px; }
+    .question { font-size: 22px; line-height: 1.3; margin: 0 0 12px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .choice { padding: 10px 16px; background: var(--navy); color: white; }
+    .choice.alt { background: white; color: var(--navy); border-color: var(--navy); }
+    .choice.stop { background: var(--stop); }
+    .ghost { background: white; border-color: #c9bfb2; color: var(--ink); padding: 8px 12px; }
+    .primary { background: var(--copper); color: white; padding: 10px 16px; }
+    .log { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+    .log li { border-left: 3px solid var(--copper); padding: 6px 10px; background: #faf7f2; }
+    .log strong { display: block; }
+    .end-ok { background: var(--ok-bg); border-color: #b7dcc6; }
+    .end-stop { background: var(--stop-bg); border-color: #f0c2c2; }
+    .end-warn { background: var(--warn-bg); border-color: #efd7a8; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; margin-bottom: 8px; }
+    .badge.ok { background: var(--ok); color: white; }
+    .badge.stop { background: var(--stop); color: white; }
+    .badge.warn { background: var(--warn); color: white; }
+    svg.arch { width: 100%; height: auto; }
+    .hotspots { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 12px; }
+    .hotspots button { text-align: left; background: #faf7f2; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font: inherit; cursor: pointer; }
+    .hotspots button strong { display: block; }
+    .hotspots button[aria-pressed="true"] { border-color: var(--copper); background: #fff5ec; }
+    .detail { margin-top: 12px; padding: 12px; border-radius: 12px; background: #f7f4ee; }
+    .steps { counter-reset: paso; display: flex; flex-direction: column; gap: 10px; }
+    .step { display: grid; grid-template-columns: 42px 1fr; gap: 10px; align-items: start; }
+    .step .n {
+      width: 42px; height: 42px; border-radius: 50%;
+      background: var(--navy); color: white; display: grid; place-items: center; font-weight: 700;
+    }
+    .checks { display: flex; flex-direction: column; gap: 8px; }
+    .checks label { display: flex; gap: 10px; align-items: flex-start; background: #faf7f2; padding: 8px 10px; border-radius: 10px; }
+    .bar { height: 10px; background: #ece4d8; border-radius: 99px; overflow: hidden; margin: 8px 0 14px; }
+    .bar span { display: block; height: 100%; background: linear-gradient(90deg, var(--copper), #e08945); width: 0%; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { border-bottom: 1px solid var(--line); text-align: left; padding: 8px 6px; vertical-align: top; }
+    th { color: var(--navy); font-size: 13px; }
+    footer { width: min(1120px, 92vw); margin: 0 auto 28px; color: var(--muted); font-size: 13px; }
+    @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <p class="eyebrow">CUN · INGS0802 · Actividad de construcción aplicada</p>
+    <h1>Ruta de diagnóstico: fallas de alimentación</h1>
+    <p>Manual interactivo para decidir, con medición y criterio de parada, si un smartphone no enciende o no carga por batería, puerto, corto o falla lógica. No reemplaza el manual del modelo ni autoriza saltar bloqueos de cuenta.</p>
+  </header>
+  <div class="wrap">
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-tab="ruta">Ruta guiada</button>
+      <button role="tab" aria-selected="false" data-tab="arquitectura">Arquitectura</button>
+      <button role="tab" aria-selected="false" data-tab="pasos">Procedimiento</button>
+      <button role="tab" aria-selected="false" data-tab="esd">Control ESD</button>
+      <button role="tab" aria-selected="false" data-tab="caso">Caso didáctico</button>
+    </div>
+
+    <section id="ruta" class="panel active" role="tabpanel">
+      <div class="layout">
+        <article class="card" id="stage">
+            <p class="node-kicker" id="kicker">Paso 1</p>
+            <div id="badge"></div>
+            <h2 class="question" id="question"></h2>
+          <p class="muted" id="help"></p>
+          <div class="actions" id="actions"></div>
+        </article>
+        <aside class="card">
+          <h2>Bitácora</h2>
+          <p class="muted">Cada decisión queda registrada. Sirve para narrar el procedimiento en la sustentación.</p>
+          <div class="actions" style="margin-bottom:12px">
+            <button class="ghost" id="reset" type="button">Reiniciar</button>
+            <button class="primary" id="caso-btn" type="button">Recorrer caso del informe</button>
+          </div>
+          <ol class="log" id="log"></ol>
+        </aside>
+      </div>
+    </section>
+
+    <section id="arquitectura" class="panel" role="tabpanel">
+      <article class="card">
+        <h2>Ruta de alimentación de un smartphone</h2>
+        <p class="muted">El voltaje alto de un cargador USB Power Delivery solo aparece después de una negociación. La primera prueba segura usa 5 V. Seleccione un bloque para ver qué se mide y cuándo detenerse.</p>
+        <svg class="arch" viewBox="0 0 980 220" role="img" aria-label="Diagrama de la ruta de alimentación">
+          <rect width="980" height="220" fill="#fffdf9"/>
+          <defs>
+            <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L6,3 L0,6 Z" fill="#1b4464"/>
+            </marker>
+          </defs>
+          <g font-family="Segoe UI, sans-serif" font-size="13" text-anchor="middle">
+            <rect x="20" y="70" width="130" height="64" rx="10" fill="#10283d"/>
+            <text x="85" y="98" fill="white">Cargador</text>
+            <text x="85" y="116" fill="#e7b899">partida en 5 V</text>
+            <rect x="190" y="70" width="130" height="64" rx="10" fill="#1b4464"/>
+            <text x="255" y="98" fill="white">Puerto USB-C</text>
+            <text x="255" y="116" fill="#e7b899">VBUS, CC, GND</text>
+            <rect x="360" y="70" width="140" height="64" rx="10" fill="#8d3f16"/>
+            <text x="430" y="98" fill="white">Protección</text>
+            <text x="430" y="116" fill="#ffe7d4">TVS y fusible</text>
+            <rect x="540" y="40" width="150" height="58" rx="10" fill="#c4622d"/>
+            <text x="615" y="74" fill="white">IC de carga</text>
+            <rect x="540" y="114" width="150" height="58" rx="10" fill="#1d6b45"/>
+            <text x="615" y="148" fill="white">Batería Li-ion</text>
+            <rect x="730" y="70" width="110" height="64" rx="10" fill="#10283d"/>
+            <text x="785" y="106" fill="white">PMIC</text>
+            <rect x="860" y="70" width="100" height="64" rx="10" fill="#1b4464"/>
+            <text x="910" y="98" fill="white">SoC y</text>
+            <text x="910" y="116" fill="white">radios</text>
+            <path d="M150 102 H190" stroke="#1b4464" stroke-width="2" marker-end="url(#arrow)"/>
+            <path d="M320 102 H360" stroke="#1b4464" stroke-width="2" marker-end="url(#arrow)"/>
+            <path d="M500 102 H540" stroke="#1b4464" stroke-width="2" marker-end="url(#arrow)"/>
+            <path d="M690 70 H730" stroke="#1b4464" stroke-width="2" marker-end="url(#arrow)"/>
+            <path d="M690 142 H760 V134" stroke="#1b4464" stroke-width="2" marker-end="url(#arrow)"/>
+            <path d="M840 102 H860" stroke="#1b4464" stroke-width="2" marker-end="url(#arrow)"/>
+          </g>
+        </svg>
+        <div class="hotspots" id="hotspots"></div>
+        <div class="detail" id="arch-detail">Seleccione un bloque.</div>
+      </article>
+    </section>
+
+    <section id="pasos" class="panel" role="tabpanel">
+      <article class="card">
+        <h2>Orden de trabajo</h2>
+        <div class="steps" id="step-list"></div>
+      </article>
+    </section>
+
+    <section id="esd" class="panel" role="tabpanel">
+      <article class="card">
+        <h2>Lista de control del puesto</h2>
+        <p class="muted">La pulsera y el tapete solo protegen si hay continuidad hasta tierra. El avance se guarda en este navegador.</p>
+        <div class="bar" aria-hidden="true"><span id="bar"></span></div>
+        <p id="bar-label" class="muted"></p>
+        <div class="checks" id="checks"></div>
+      </article>
+    </section>
+
+    <section id="caso" class="panel" role="tabpanel">
+      <article class="card">
+        <h2>Caso didáctico: después del aguacero</h2>
+        <p class="muted">Ejemplo construido para el informe. Los números ilustran el método; no son umbrales universales de un modelo comercial.</p>
+        <table>
+          <thead><tr><th>Dato</th><th>Lectura del caso</th><th>Decisión</th></tr></thead>
+          <tbody>
+            <tr><td>Síntoma</td><td>No enciende después de mojarse. Sin olor ni hinchazón.</td><td>Seguir, sin carga rápida.</td></tr>
+            <tr><td>Prueba externa</td><td>Cable y cargador de 5 V conocidos. El puerto tiene residuo verdoso.</td><td>No arranca. Abrir con ESD.</td></tr>
+            <tr><td>Batería</td><td>La etiqueta indica celda de 3,85 V nominal. Se miden 3,92 V.</td><td>La batería no explica el equipo muerto.</td></tr>
+            <tr><td>Corriente limitada</td><td>Fuente a la tensión de la etiqueta, límite 0,5 A. Entra en límite al instante.</td><td>Hay corto. No se sube el límite.</td></tr>
+            <tr><td>Aislamiento</td><td>Al desconectar la subplaca de carga, el corto desaparece.</td><td>Se reemplaza ese módulo, se limpia con isopropílico al 99 % y se vuelve a medir.</td></tr>
+            <tr><td>Datos</td><td>El equipo no encendió. No hubo respaldo posible.</td><td>El usuario firma que conoce el riesgo antes de la apertura.</td></tr>
+          </tbody>
+        </table>
+        <div class="actions">
+          <button class="primary" id="caso-btn-2" type="button">Ver este recorrido en la ruta guiada</button>
+        </div>
+      </article>
+    </section>
+  </div>
+  <footer>
+    Recurso de apoyo del ACA de Mantenimiento de Dispositivos Móviles. La intervención real exige el esquema o el manual del modelo, autorización del usuario y puesto ESD. Quedan fuera de este protocolo el reballing del SoC, la alteración del IMEI y eludir bloqueos de cuenta.
+  </footer>
+  <script>
+    const nodes = {
+      inicio: {
+        kicker: "Recepción",
+        q: "¿La batería está hinchada, perforada, huele a químico o el equipo sigue caliente después de desconectarlo?",
+        help: "Esas señales indican una celda insegura. No se pincha, no se carga y no se pone en el cargador “para probar”.",
+        choices: [
+          ["Sí, hay señal de inseguridad", "alto_bateria", true],
+          ["No", "enciende", false]
+        ]
+      },
+      enciende: {
+        kicker: "Clasificación",
+        q: "¿El teléfono enciende y se mantiene estable al menos un minuto?",
+        help: "Si enciende, primero se protegen los datos. Si no enciende, se agotan las pruebas externas antes de abrir.",
+        choices: [
+          ["Sí enciende", "respaldo", false],
+          ["No enciende", "externas", false]
+        ]
+      },
+      respaldo: {
+        kicker: "Integridad de la información",
+        q: "Con el equipo estable, ¿ya quedó el respaldo y la autorización de lo que se va a intervenir?",
+        help: "Cuenta del fabricante, copia local o herramienta oficial. No se guarda la contraseña del usuario en la orden. Si el fallo siguiente es lógico, el respaldo es obligatorio antes de cualquier restablecimiento.",
+        choices: [
+          ["No carga, o solo carga moviendo el cable", "puerto", false],
+          ["Se queda en el logo o se reinicia sin daño físico", "logico", false],
+          ["Se apaga y se calienta al conectar el cargador", "medir", false]
+        ]
+      },
+      externas: {
+        kicker: "Sin abrir el equipo",
+        q: "Con cable y cargador de 5 V en buen estado, puerto inspeccionado y reinicio del fabricante, ¿el equipo arrancó?",
+        help: "No se usa un cargador rápido desconocido ni un disparador que fuerce 9 V o más. El primer estímulo seguro, antes de cualquier negociación USB Power Delivery, es 5 V.",
+        choices: [
+          ["Sí arrancó", "respaldo", false],
+          ["Sigue muerto", "medir", false]
+        ]
+      },
+      puerto: {
+        kicker: "Carga intermitente",
+        q: "Después de limpiar pelusa con una púa no metálica y probar otro cable, ¿la carga queda estable?",
+        help: "Si el modelo carga por inducción y la base inalámbrica funciona, la batería y el PMIC están vivos: la falla apunta al puerto o a su línea.",
+        choices: [
+          ["Sí, carga estable", "cierre_limpieza", false],
+          ["No", "medir", false]
+        ]
+      },
+      medir: {
+        kicker: "Medición con puesto ESD",
+        q: "Según la etiqueta del paquete, ¿el voltaje de la batería está dentro de su rango?",
+        help: "La etiqueta manda. Una celda típica ronda 3,6 a 4,2 V; un paquete en serie puede marcar cerca del doble. No se asume 3,8 V para todos los teléfonos.",
+        choices: [
+          ["Fuera de rango, en 0 V o por debajo de unos 3,0 V en celda", "fuera_rango", false],
+          ["Dentro del rango de su etiqueta", "corto", false]
+        ]
+      },
+      fuera_rango: {
+        kicker: "Batería sospechosa",
+        q: "Antes de instalar una batería nueva, ¿la placa presenta corto en la línea de alimentación?",
+        help: "Una batería nueva conectada a una placa en corto se daña o no permite encender. No se recupera una celda hinchada ni una que supera el voltaje máximo de su etiqueta.",
+        choices: [
+          ["Sí hay corto", "aislar", false],
+          ["No hay corto franco", "abierto", false]
+        ]
+      },
+      corto: {
+        kicker: "Buscar el corto",
+        q: "Con la batería desconectada, polaridad confirmada y la fuente limitada (empiece entre 0,2 y 0,5 A), ¿la corriente se va al límite de inmediato?",
+        help: "Ese límite es una protección del protocolo, no el consumo normal del modelo. No se sube la corriente para obligar el arranque. Sin esquema del modelo no se inyecta tensión “a ver qué pasa”.",
+        choices: [
+          ["Sí, entra en límite o hay corto franco a tierra", "aislar", false],
+          ["No", "abierto", false]
+        ]
+      },
+      aislar: {
+        kicker: "Aislar el módulo",
+        q: "Al desconectar la subplaca de carga o el conector, ¿el corto desaparece?",
+        help: "Esta prueba separa un módulo reemplazable de una falla en la placa principal.",
+        choices: [
+          ["Sí, el corto se va con ese módulo", "cierre_modulo", false],
+          ["No, el corto sigue en la placa principal", "cierre_placa", true]
+        ]
+      },
+      abierto: {
+        kicker: "Sin corto franco",
+        q: "¿Qué explica mejor la medición?",
+        help: "Circuito abierto y falla lógica se parecen en el mostrador y se separan con la medición. El flasheo oficial solo procede si la alimentación ya es estable.",
+        choices: [
+          ["Flex, fusible o conector abierto, reparable como módulo", "cierre_modulo", false],
+          ["La alimentación ya es estable y el fallo es de arranque", "logico", false]
+        ]
+      },
+      logico: {
+        terminal: true,
+        tone: "warn",
+        badge: "Camino lógico",
+        q: "Alimentación estable: intervenir software con herramienta oficial",
+        help: "Respaldo previo, firmware del fabricante y restauración de la copia. Este protocolo no incluye desbloqueo del gestor de arranque, elusión de cuentas ni alteración del IMEI. Si el equipo vuelve a apagarse o a calentarse, se regresa a la medición eléctrica."
+      },
+      alto_bateria: {
+        terminal: true,
+        tone: "stop",
+        badge: "Parada de seguridad",
+        q: "Detener el diagnóstico eléctrico",
+        help: "Aislar la batería en un recipiente no metálico, lejos de combustibles. No pinchar, no congelar y no cargar. La sustitución la hace quien pueda instalar un paquete del mismo voltaje y conector, y el residuo se entrega como RAEE. Ley 1672 de 2013."
+      },
+      cierre_limpieza: {
+        terminal: true,
+        tone: "ok",
+        badge: "Cierre",
+        q: "La falla quedó en el cable o en la suciedad del puerto",
+        help: "Documentar la limpieza, probar al menos diez minutos de carga y entregar. Si el puerto quedó deformado, el siguiente paso es reemplazar el módulo, no forzar el conector."
+      },
+      cierre_modulo: {
+        terminal: true,
+        tone: "ok",
+        badge: "Correctivo de módulo",
+        q: "Reemplazar el módulo, limpiar y volver a medir antes de cerrar",
+        help: "Alcohol isopropílico al 99 %, secado completo y repetición de la prueba de corriente. Solo entonces se ensambla y se corre la lista de pruebas de salida. Si el corto regresa, no se entrega el equipo."
+      },
+      cierre_placa: {
+        terminal: true,
+        tone: "stop",
+        badge: "Fuera de alcance",
+        q: "Corto en la placa principal",
+        help: "Sin boardview y sin competencia de soldadura SMD, aquí se detiene la reparación y se informa. Con esquema, la búsqueda sigue la línea hasta el componente. El reballing del SoC o de la memoria no forma parte de este protocolo."
+      }
+    };
+
+    const casoPath = ["inicio", "enciende", "externas", "medir", "corto", "aislar", "cierre_modulo"];
+    const casoAnswers = ["No", "No enciende", "Sigue muerto", "Dentro del rango de su etiqueta", "Sí, entra en límite", "Sí, el corto se va con ese módulo"];
+
+    const arch = [
+      ["Cargador 5 V", "Primera fuente de prueba. Un cargador USB Power Delivery puede subir de 5 V solo después de negociar con el teléfono. Forzar 9, 15 o 20 V puede destruir la línea."],
+      ["Puerto USB-C", "Inspeccionar pines doblados, pelusa y corrosión. VBUS a tierra en corto es motivo para no conectar el cargador."],
+      ["Protección", "TVS y fusible absorben un transitorio o abren la línea. Un fusible abierto parece un teléfono muerto y no se puentea con un alambre."],
+      ["IC de carga", "Administra la corriente hacia la batería. Si la inducción carga y el cable no, este bloque o el puerto siguen en la lista de hipótesis."],
+      ["Batería", "Leer la etiqueta. Hinchazón, olor o voltaje por encima del máximo impiden la carga. IEEE 1725 trata la seguridad del paquete, no su “resurrección”."],
+      ["PMIC", "Reparte los rieles hacia el SoC, la pantalla y las radios. Un corto en la placa principal puede estar aquí. Sin esquema no se interviene el integrado."],
+      ["SoC y radios", "Destino de la energía. Reinicios con consumo disparado pueden ser corto o falla lógica. Primero se demuestra que la alimentación es estable."]
+    ];
+
+    const pasos = [
+      ["Recibir y fotografiar", "Orden de servicio, síntoma en palabras del usuario y autorización escrita."],
+      ["Separar la emergencia química", "Batería hinchada, olor o calor persistente detienen el flujo."],
+      ["Respaldar si enciende", "Copia con la herramienta del fabricante antes de abrir o restablecer."],
+      ["Probar sin abrir", "Cable conocido, 5 V, inspección del puerto y reinicio documentado del modelo."],
+      ["Preparar el puesto ESD", "Pulsera medida, tapete a tierra y herramientas sobre la superficie disipativa."],
+      ["Medir", "Voltaje según etiqueta y, solo con polaridad confirmada, corriente con límite bajo."],
+      ["Decidir el alcance", "Módulo reemplazable, parada por falta de esquema, o firmware oficial si la energía ya es estable."],
+      ["Probar y documentar", "Carga, temperatura, audio, radios, sensores y entrega del residuo RAEE."]
+    ];
+
+    const controles = [
+      "La pulsera antiestática está puesta y su cable llega a tierra.",
+      "El tapete ESD está conectado al mismo punto de tierra.",
+      "La resistencia de la pulsera se comprobó; no se asume que funciona.",
+      "La placa y las baterías no están sobre plástico común ni sobre la ropa.",
+      "Hay alcohol isopropílico al 99 %, no al 70 %.",
+      "El multímetro está en la función correcta antes de tocar la placa.",
+      "La fuente, si se usa, tiene límite de corriente ajustado antes de conectar.",
+      "Hay esquema o manual del modelo antes de inyectar tensión al conector de batería.",
+      "La batería de repuesto coincide en voltaje y conector con la etiqueta.",
+      "La orden tiene fotos de entrada y espacio para las pruebas de salida."
+    ];
+
+    let current = "inicio";
+    const log = [];
+
+    const qEl = document.getElementById("question");
+    const hEl = document.getElementById("help");
+    const kEl = document.getElementById("kicker");
+    const aEl = document.getElementById("actions");
+    const logEl = document.getElementById("log");
+    const stage = document.getElementById("stage");
+    const badgeEl = document.getElementById("badge");
+
+    function render() {
+      const node = nodes[current];
+      kEl.textContent = node.kicker || (node.terminal ? "Resultado" : "Decisión");
+      qEl.textContent = node.q;
+      hEl.textContent = node.help;
+      aEl.innerHTML = "";
+      badgeEl.innerHTML = "";
+      stage.className = "card";
+      if (node.terminal) {
+        stage.classList.add(node.tone === "ok" ? "end-ok" : node.tone === "stop" ? "end-stop" : "end-warn");
+        const badge = document.createElement("div");
+        badge.className = "badge " + (node.tone === "ok" ? "ok" : node.tone === "stop" ? "stop" : "warn");
+        badge.textContent = node.badge;
+        badgeEl.appendChild(badge);
+      } else {
+        node.choices.forEach(([label, next]) => {
+          const b = document.createElement("button");
+          b.className = "choice" + (label.startsWith("Sí") && next === "alto_bateria" ? " stop" : label.startsWith("No") ? " alt" : "");
+          b.type = "button";
+          b.textContent = label;
+          b.addEventListener("click", () => choose(label, next));
+          aEl.appendChild(b);
+        });
+      }
+      logEl.innerHTML = "";
+      if (!log.length) {
+        const li = document.createElement("li");
+        li.textContent = "Aún no hay decisiones.";
+        logEl.appendChild(li);
+      }
+      log.forEach((item) => {
+        const li = document.createElement("li");
+        li.innerHTML = "<strong>" + item.q + "</strong>" + item.a;
+        logEl.appendChild(li);
+      });
+    }
+
+    function choose(label, next) {
+      log.push({ q: nodes[current].q, a: label });
+      current = next;
+      render();
+    }
+
+    function reset(keepTab) {
+      current = "inicio";
+      log.length = 0;
+      render();
+      if (!keepTab) activate("ruta");
+    }
+
+    function runCaso() {
+      activate("ruta");
+      current = "inicio";
+      log.length = 0;
+      casoPath.forEach((id, index) => {
+        if (index === casoPath.length - 1) return;
+        log.push({ q: nodes[id].q, a: casoAnswers[index] });
+      });
+      current = "cierre_modulo";
+      render();
+    }
+
+    function activate(id) {
+      document.querySelectorAll(".tabs button").forEach((btn) => {
+        btn.setAttribute("aria-selected", btn.dataset.tab === id ? "true" : "false");
+      });
+      document.querySelectorAll(".panel").forEach((panel) => {
+        panel.classList.toggle("active", panel.id === id);
+      });
+    }
+
+    document.querySelectorAll(".tabs button").forEach((btn) => {
+      btn.addEventListener("click", () => activate(btn.dataset.tab));
+    });
+    document.getElementById("reset").addEventListener("click", () => reset(true));
+    document.getElementById("caso-btn").addEventListener("click", runCaso);
+    document.getElementById("caso-btn-2").addEventListener("click", runCaso);
+
+    const hot = document.getElementById("hotspots");
+    const detail = document.getElementById("arch-detail");
+    arch.forEach(([title, text], index) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.innerHTML = "<strong>" + title + "</strong><span class='muted'>Ver criterio</span>";
+      b.addEventListener("click", () => {
+        hot.querySelectorAll("button").forEach((el) => el.setAttribute("aria-pressed", "false"));
+        b.setAttribute("aria-pressed", "true");
+        detail.innerHTML = "<strong>" + title + ".</strong> " + text;
+      });
+      if (index === 0) {
+        b.setAttribute("aria-pressed", "true");
+        detail.innerHTML = "<strong>" + title + ".</strong> " + text;
+      }
+      hot.appendChild(b);
+    });
+
+    const stepList = document.getElementById("step-list");
+    pasos.forEach(([title, text], index) => {
+      const row = document.createElement("div");
+      row.className = "step";
+      row.innerHTML = "<div class='n'>" + (index + 1) + "</div><div><h3>" + title + "</h3><p class='muted'>" + text + "</p></div>";
+      stepList.appendChild(row);
+    });
+
+    const checks = document.getElementById("checks");
+    const saved = JSON.parse(localStorage.getItem("aca-esd") || "[]");
+    controles.forEach((text, index) => {
+      const label = document.createElement("label");
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = Boolean(saved[index]);
+      input.addEventListener("change", updateBar);
+      label.appendChild(input);
+      const span = document.createElement("span");
+      span.textContent = text;
+      label.appendChild(span);
+      checks.appendChild(label);
+    });
+
+    function updateBar() {
+      const boxes = [...checks.querySelectorAll("input")];
+      const values = boxes.map((box) => box.checked);
+      localStorage.setItem("aca-esd", JSON.stringify(values));
+      const done = values.filter(Boolean).length;
+      const pct = Math.round((done / values.length) * 100);
+      document.getElementById("bar").style.width = pct + "%";
+      document.getElementById("bar-label").textContent = done + " de " + values.length + " controles listos (" + pct + "%).";
+    }
+    updateBar();
+    render();
+  </script>
+</body>
+</html>
